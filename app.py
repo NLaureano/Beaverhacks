@@ -25,6 +25,8 @@ def register():
     username = data.get("username")
     password = data.get("password")
 
+    print(f"Attempting /register {username}")
+
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "User already exists"}), 409
 
@@ -33,6 +35,8 @@ def register():
 
     db.session.add(user)
     db.session.commit()
+
+    print(f"Creating {username}")
 
     return jsonify({"message": "User registered successfully", "user": user.to_dict()}), 201
 
@@ -47,16 +51,21 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
+    print(f"Attempting /login {username}")
+
     user = User.query.filter_by(username=username).first()
 
     # Remove the password hash from the user object before returning it in the response
     user.password_hash = None
 
     if not user or not user.verify_password(password):
+        print(f"/login failed for {username}")
         return jsonify({"error": "Invalid username or password"}), 401
 
     token = user.generate_token()
     db.session.commit()
+
+    print(f"/login SUCCESS for {username}")
 
     return jsonify({"message": "Login successful", "token": token, "user": user.to_dict()}), 200
 
@@ -66,6 +75,7 @@ def ticket():
     token = request.args.get("token")
     ticket_id = request.args.get("ticket_id")
 
+    print(f"/ticket for {token} for ticket {ticket_id}")
     if not token:
         return jsonify({"error": "Missing token"}), 400
     
