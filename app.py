@@ -15,6 +15,12 @@ def create_tables():
     db.create_all()
 
 
+"""
+{
+  "username": "john_doe",
+  "password": "secure_password_123"
+}
+"""
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
@@ -32,6 +38,7 @@ def register():
 
     user = User(username=username)
     user.set_password(password)
+    user.generate_token()
 
     db.session.add(user)
     db.session.commit()
@@ -40,7 +47,12 @@ def register():
 
     return jsonify({"message": "User registered successfully", "user": user.to_dict()}), 201
 
-
+"""
+{
+  "username": "john_doe",
+  "password": "secure_password_123"
+}
+"""
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
@@ -70,6 +82,12 @@ def login():
     return jsonify({"message": "Login successful", "token": token, "user": user.to_dict()}), 200
 
 
+"""
+{
+    "token": "UUID token",
+    "ticket_id": "0"
+}
+"""
 @app.route("/ticket", methods=["GET"])
 def ticket():
     token = request.args.get("token")
