@@ -3,7 +3,6 @@ import os
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL") or (
         "mysql+pymysql://"

@@ -1,0 +1,97 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from config import Config
+from models import db, User
+
+app = Flask(__name__)
+app.config.from_object(Config)
+CORS(app)
+
+db.init_app(app)
+
+
+@app.before_request
+def create_tables():
+    db.create_all()
+
+
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+
+    if not data or not data.get("username") or not data.get("password"):
+        return jsonify({"error": "Missing username or password"}), 400
+
+    username = data.get("username")
+    password = data.get("password")
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "User already exists"}), 409
+
+    user = User(username=username)
+    user.set_password(password)
+
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({"message": "User registered successfully", "user": user.to_dict()}), 201
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+
+    if not data or not data.get("username") or not data.get("password"):
+        return jsonify({"error": "Missing username or password"}), 400
+
+    username = data.get("username")
+    password = data.get("password")
+
+    user = User.query.filter_by(username=username).first()
+
+    # Remove the password hash from the user object before returning it in the response
+    user.password_hash = None
+
+    if not user or not user.verify_password(password):
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    token = user.generate_token()
+    db.session.commit()
+
+    return jsonify({"message": "Login successful", "token": token, "user": user.to_dict()}), 200
+
+
+@app.route("/ticket", methods=["GET"])
+def ticket():
+    token = request.args.get("token")
+    ticket_id = request.args.get("ticket_id")
+
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+    
+    if not ticket_id:
+        return jsonify({"error": "Missing ticket_id"}), 400
+
+    user = User.query.filter_by(token=token).first()
+
+    if not user:
+        return jsonify({"error": "Invalid token"}), 401
+
+    return jsonify({"message": "Ticket endpoint", "user_id": user.id, "ticket_id": ticket_id}), 200
+
+
+
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Not found"}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error"}), 500
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
