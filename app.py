@@ -109,7 +109,14 @@ def ticket():
 
     if not user:
         return jsonify({"error": "Invalid token"}), 401
-    return jsonify({"message": "Ticket received", "user_id": user.id, "ticket_id": ticket_id}), 200
+    #Fetch Tickets/Ticket-{ticket_id}/Content.json and return the contents
+    content_path = os.path.join(f"Tickets/Ticket-{ticket_id}", "Content.json")
+    if not os.path.exists(content_path):
+        return jsonify({"error": "No content found for ticket"}), 404
+    with open(content_path, "r") as f:
+        content = f.read()
+
+    return jsonify({"content": content}), 200
 
 """
 input:
