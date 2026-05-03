@@ -125,6 +125,7 @@ def codebase():
     token = request.args.get("token")
 
     print(f"/codebase for {token}")
+    print(f"{request.get_json()}")
 
     if not token:
         return jsonify({"error": "Missing token"}), 400
