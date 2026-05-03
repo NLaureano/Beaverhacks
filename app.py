@@ -3,6 +3,11 @@ from flask_cors import CORS
 from config import Config
 from models import db, User
 import os
+import sys
+import tempfile
+import shutil
+import importlib.util
+import traceback
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -104,6 +109,77 @@ def ticket():
 
     if not user:
         return jsonify({"error": "Invalid token"}), 401
+    
+    # Run the codebase against the tests for the current ticket and return the results
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ticket_dir = os.path.join(tmpdir, f"Ticket-{ticket_id}")
+        codebase_dir = os.path.join(ticket_dir, "Codebase")
+        tests_dir = os.path.join(ticket_dir, "tests")
+        os.makedirs(codebase_dir, exist_ok=True)
+
+        # Write submitted code files
+        for rel_path, content in codebase.items():
+            dest_path = os.path.join(codebase_dir, rel_path)
+            dest_parent = os.path.dirname(dest_path)
+            if dest_parent:
+                os.makedirs(dest_parent, exist_ok=True)
+            with open(dest_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+        # Copy official tests from repository into the temporary ticket tests directory
+        repo_tests_path = os.path.join(f"Tickets/Ticket-{ticket_id}", "tests")
+        if not os.path.exists(repo_tests_path):
+            return jsonify({"error": "No tests found for ticket"}), 404
+
+        shutil.copytree(repo_tests_path, tests_dir)
+
+        # Run pytest as a subprocess for isolation
+        cmd = [sys.executable, "-m", "pytest", "-q", "--disable-warnings", "--maxfail=1"]
+        try:
+            proc = __import__("subprocess").run(cmd, cwd=ticket_dir, capture_output=True, text=True, timeout=30)
+        except Exception as exc:
+            return jsonify({"error": "Failed to run tests", "details": str(exc)}), 500
+
+        stdout = proc.stdout
+        stderr = proc.stderr
+        exit_code = proc.returncode
+
+        # Parse pytest summary from stdout (e.g., "== 4 passed, 1 failed in 0.12s ==")
+        import re
+        summary = {"total": None, "passed": 0, "failed": 0, "skipped": 0}
+        m = re.search(r"(\d+) passed", stdout)
+        if m:
+            summary["passed"] = int(m.group(1))
+        m = re.search(r"(\d+) failed", stdout)
+        if m:
+            summary["failed"] = int(m.group(1))
+        m = re.search(r"(\d+) skipped", stdout)
+        if m:
+            summary["skipped"] = int(m.group(1))
+        # total = passed + failed + skipped (if numbers present)
+        counts = [summary["passed"], summary["failed"], summary["skipped"]]
+        if any(c > 0 for c in counts):
+            summary["total"] = sum(counts)
+        else:
+            # fallback: if pytest prints nothing matching, set total to 0
+            summary["total"] = 0
+
+        # Update user's tickets_done only if all tests passed and at least one test ran
+        if summary["failed"] == 0 and summary["total"] > 0:
+            user.tickets_done += 1
+            db.session.commit()
+
+        status = "Code passed all tests for this ticket!" if summary["failed"] == 0 and summary["total"] > 0 else "Code failed some tests for this ticket!"
+        return jsonify({
+            "Testing Output": status,
+            "Details": {
+                "exit_code": exit_code,
+                "stdout": stdout,
+                "stderr": stderr,
+                "summary": summary
+            },
+            "tickets_done": user.tickets_done
+        }), 200
 
     return jsonify({"message": "Ticket endpoint", "user_id": user.id, "ticket_id": ticket_id}), 200
 
@@ -155,6 +231,66 @@ def codebase():
                 codebase[os.path.relpath(os.path.join(root, file), codebase_path)] = f.read()
                 
     return jsonify({"codebase": codebase}), 200
+
+"""
+input:
+{
+    token: "UUID token",
+    ticket_id: "0",
+    codebase: {
+        "file1.py": "print('Hello, world!')",
+        "subdir/file2.py": "def add(a, b): return a + b"
+    }
+}
+
+SUCCESSFUL output:
+{
+    "Testing Output": "Code passed all tests for this ticket!"
+}
+
+FAILURE output:
+{
+    "Testing Output": "Code failed some tests for this ticket!"
+    "Details": { 
+                Total tests: 10,
+                Passed: 8,
+                Failed: 2 
+                "Traceback or error message from the test runner"
+    }
+}
+"""
+@app.route("/submit", methods=["POST"])
+def submit():
+    data = request.get_json()
+    token = data.get("token")
+    ticket_id = data.get("ticket_id")
+    codebase = data.get("codebase")
+
+    print(f"/submit for {token} for ticket {ticket_id}")
+
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+    
+    if not ticket_id:
+        return jsonify({"error": "Missing ticket_id"}), 400
+
+    if not codebase:
+        return jsonify({"error": "Missing codebase"}), 400
+
+    user = User.query.filter_by(token=token).first()
+
+    if not user:
+        return jsonify({"error": "Invalid token"}), 401
+    
+    #Run the codebase against the tests for the current ticket and return the results
+    
+
+
+    # For now, just increment the user's tickets_done and return success
+    user.tickets_done += 1
+    db.session.commit()
+
+    return jsonify({"message": "Code submitted successfully", "tickets_done": user.tickets_done}), 200
 
 
 
