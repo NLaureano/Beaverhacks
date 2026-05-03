@@ -21,6 +21,191 @@ def create_tables():
     db.create_all()
 
 
+@app.route("/", methods=["GET"])
+def api_guide():
+    """Return API documentation and guide."""
+    guide = {
+        "service": "Beaverhacks Ticket System",
+        "description": "A coding challenge platform where users solve ticket-based programming problems",
+        "base_url": "http://localhost:5000",
+        "endpoints": [
+            {
+                "name": "Register User",
+                "path": "/register",
+                "method": "POST",
+                "description": "Create a new user account",
+                "input": {
+                    "username": "string (required)",
+                    "password": "string (required)"
+                },
+                "output": {
+                    "success": {
+                        "message": "User registered successfully",
+                        "user": {
+                            "id": "integer",
+                            "username": "string",
+                            "token": "UUID string",
+                            "tickets_done": "integer"
+                        }
+                    },
+                    "errors": [
+                        {"status": 400, "error": "Missing username or password"},
+                        {"status": 409, "error": "User already exists"}
+                    ]
+                },
+                "example_request": {
+                    "username": "john_doe",
+                    "password": "secure_password_123"
+                }
+            },
+            {
+                "name": "Login User",
+                "path": "/login",
+                "method": "POST",
+                "description": "Authenticate user and get token",
+                "input": {
+                    "username": "string (required)",
+                    "password": "string (required)"
+                },
+                "output": {
+                    "success": {
+                        "message": "Login successful",
+                        "token": "UUID string",
+                        "user": {
+                            "id": "integer",
+                            "username": "string",
+                            "token": "UUID string",
+                            "tickets_done": "integer"
+                        }
+                    },
+                    "errors": [
+                        {"status": 400, "error": "Missing username or password"},
+                        {"status": 401, "error": "Invalid username or password"}
+                    ]
+                },
+                "example_request": {
+                    "username": "john_doe",
+                    "password": "secure_password_123"
+                }
+            },
+            {
+                "name": "Get Ticket Content",
+                "path": "/ticket",
+                "method": "POST",
+                "description": "Fetch ticket metadata and description",
+                "input": {
+                    "token": "UUID string (required)",
+                    "ticket_id": "string (required)"
+                },
+                "output": {
+                    "success": {
+                        "content": "JSON string containing ticket metadata (id, title, description, difficulty, components)"
+                    },
+                    "errors": [
+                        {"status": 400, "error": "Missing token or ticket_id"},
+                        {"status": 401, "error": "Invalid token"},
+                        {"status": 404, "error": "No content found for ticket"}
+                    ]
+                },
+                "example_request": {
+                    "token": "550e8400-e29b-41d4-a716-446655440000",
+                    "ticket_id": "0"
+                }
+            },
+            {
+                "name": "Get Codebase",
+                "path": "/codebase",
+                "method": "POST",
+                "description": "Fetch all code files for a ticket",
+                "input": {
+                    "token": "UUID string (required)",
+                    "ticket_id": "string (optional, defaults to user's current ticket)"
+                },
+                "output": {
+                    "success": {
+                        "codebase": {
+                            "file1.py": "code content as string",
+                            "subdir/file2.py": "code content as string"
+                        }
+                    },
+                    "errors": [
+                        {"status": 400, "error": "Missing token"},
+                        {"status": 401, "error": "Invalid token"},
+                        {"status": 404, "error": "No codebase for current ticket"}
+                    ]
+                },
+                "example_request": {
+                    "token": "550e8400-e29b-41d4-a716-446655440000",
+                    "ticket_id": "0"
+                }
+            },
+            {
+                "name": "Submit Solution",
+                "path": "/submit",
+                "method": "POST",
+                "description": "Submit code solution and run tests",
+                "input": {
+                    "token": "UUID string (required)",
+                    "ticket_id": "string (required)",
+                    "codebase": {
+                        "file1.py": "code content as string",
+                        "subdir/file2.py": "code content as string"
+                    }
+                },
+                "output": {
+                    "success": {
+                        "Testing Output": "Code passed all tests for this ticket!",
+                        "tickets_done": "integer (incremented if all tests pass)",
+                        "Details": {
+                            "exit_code": "integer",
+                            "stdout": "test output",
+                            "stderr": "error output if any",
+                            "summary": {
+                                "total": "integer",
+                                "passed": "integer",
+                                "failed": "integer",
+                                "errors": "integer",
+                                "skipped": "integer"
+                            }
+                        }
+                    },
+                    "failure": {
+                        "Testing Output": "Code failed some tests for this ticket!",
+                        "tickets_done": "integer",
+                        "Details": {
+                            "exit_code": "integer",
+                            "stdout": "test output with failures",
+                            "stderr": "error output if any",
+                            "summary": {
+                                "total": "integer",
+                                "passed": "integer",
+                                "failed": "integer",
+                                "errors": "integer",
+                                "skipped": "integer"
+                            }
+                        }
+                    },
+                    "errors": [
+                        {"status": 400, "error": "Missing token, ticket_id, or codebase"},
+                        {"status": 401, "error": "Invalid token"},
+                        {"status": 404, "error": "No tests found for ticket"},
+                        {"status": 500, "error": "Failed to run tests"}
+                    ]
+                },
+                "example_request": {
+                    "token": "550e8400-e29b-41d4-a716-446655440000",
+                    "ticket_id": "0",
+                    "codebase": {
+                        "calculator.py": "def add(a, b):\n    return a + b",
+                        "main.py": "from calculator import add\nprint(add(2, 3))"
+                    }
+                }
+            }
+        ]
+    }
+    return jsonify(guide), 200
+
+
 """
 {
   "username": "john_doe",
@@ -109,6 +294,7 @@ def ticket():
 
     if not user:
         return jsonify({"error": "Invalid token"}), 401
+    
     #Fetch Tickets/Ticket-{ticket_id}/Content.json and return the contents
     content_path = os.path.join(f"Tickets/Ticket-{ticket_id}", "Content.json")
     if not os.path.exists(content_path):
