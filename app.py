@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from config import Config
 from models import db, User
+import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -104,7 +105,52 @@ def ticket():
 
     return jsonify({"message": "Ticket endpoint", "user_id": user.id, "ticket_id": ticket_id}), 200
 
+"""
+input:
+{
+    "token": "UUID token",
+    OPTIONAL "ticket_id": "0"
+}
 
+output:
+{
+    "codebase": {
+        "file1.py": "print('Hello, world!')",
+        "subdir/file2.py": "def add(a, b): return a + b"
+    }
+}
+"""
+@app.route("/codebase", methods=["GET"])
+def codebase():
+    token = request.args.get("token")
+
+    print(f"/codebase for {token}")
+
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+    
+    user = User.query.filter_by(token=token).first()
+
+    if not user:
+        return jsonify({"error": "Invalid token"}), 401
+    
+    #optional ticket_id for debugging
+    ticket_id = request.args.get("ticket_id")
+    current_ticket = user.tickets_done if ticket_id is None else ticket_id
+
+    #get the codebase for the current ticket
+    codebase_path = os.path.join("codebases", f"ticket_{current_ticket}")
+    if not os.path.exists(codebase_path):
+        return jsonify({"error": "No codebase for current ticket"}), 404
+    
+    #Jsonify the codebase
+    codebase = {}
+    for root, dirs, files in os.walk(codebase_path):
+        for file in files:
+            with open(os.path.join(root, file), "r") as f:
+                codebase[os.path.relpath(os.path.join(root, file), codebase_path)] = f.read()
+                
+    return jsonify({"codebase": codebase}), 200
 
 
 
