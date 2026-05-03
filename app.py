@@ -142,8 +142,8 @@ def codebase():
     ticket_id = data.get("ticket_id")
     current_ticket = user.tickets_done if ticket_id is None else ticket_id
 
-    #get the codebase for the current ticket
-    codebase_path = os.path.join("codebases", f"ticket_{current_ticket}")
+    #get the codebase for the current ticket under Tickets/ticket-{current_ticket}
+    codebase_path = os.path.join(f"Tickets/Ticket-{current_ticket}", "Codebase")
     if not os.path.exists(codebase_path):
         return jsonify({"error": "No codebase for current ticket"}), 404
     
