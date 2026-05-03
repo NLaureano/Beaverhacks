@@ -67,9 +67,6 @@ def login():
 
     user = User.query.filter_by(username=username).first()
 
-    # Remove the password hash from the user object before returning it in the response
-    user.password_hash = None
-
     if not user or not user.verify_password(password):
         print(f"/login failed for {username}")
         return jsonify({"error": "Invalid username or password"}), 401
