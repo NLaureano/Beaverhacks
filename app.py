@@ -217,6 +217,7 @@ def register():
     data = request.get_json()
 
     if not data or not data.get("username") or not data.get("password"):
+        print(f"FAIL /register for missing username or password. {data}")
         return jsonify({"error": "Missing username or password"}), 400
 
     username = data.get("username")
@@ -225,6 +226,7 @@ def register():
     print(f"Attempting /register {username}")
 
     if User.query.filter_by(username=username).first():
+        print(f"FAIL /register for existing user. {data}")
         return jsonify({"error": "User already exists"}), 409
 
     user = User(username=username)
@@ -234,7 +236,7 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    print(f"Creating {username}")
+    print(f"SUCCESS /register for {username}")
 
     return jsonify({"message": "User registered successfully", "user": user.to_dict()}), 201
 
@@ -249,6 +251,7 @@ def login():
     data = request.get_json()
 
     if not data or not data.get("username") or not data.get("password"):
+        print(f"FAIL /login for missing username or password. {data}")
         return jsonify({"error": "Missing username or password"}), 400
 
     username = data.get("username")
@@ -259,13 +262,13 @@ def login():
     user = User.query.filter_by(username=username).first()
 
     if not user or not user.verify_password(password):
-        print(f"/login failed for {username}")
+        print(f"FAIL /login for invalid username or password. {data}")
         return jsonify({"error": "Invalid username or password"}), 401
 
     token = user.generate_token()
     db.session.commit()
 
-    print(f"/login SUCCESS for {username}")
+    print(f"SUCCESS /login for {username}")
 
     return jsonify({"message": "Login successful", "token": token, "user": user.to_dict()}), 200
 
@@ -283,25 +286,29 @@ def ticket():
     token = data.get("token")
     ticket_id = data.get("ticket_id")
 
-    print(f"/ticket for {token} for ticket {ticket_id}")
     if not token:
+        print(f"FAIL /ticket for missing token. {data}")
         return jsonify({"error": "Missing token"}), 400
     
     if not ticket_id:
+        print(f"FAIL /ticket for missing ticket_id. {data}")
         return jsonify({"error": "Missing ticket_id"}), 400
 
     user = User.query.filter_by(token=token).first()
 
     if not user:
+        print(f"FAIL /ticket for invalid token. {data}")
         return jsonify({"error": "Invalid token"}), 401
     
     #Fetch Tickets/Ticket-{ticket_id}/Content.json and return the contents
     content_path = os.path.join(f"Tickets/Ticket-{ticket_id}", "Content.json")
     if not os.path.exists(content_path):
+        print(f"FAIL /ticket for missing content. {data}")
         return jsonify({"error": "No content found for ticket"}), 404
     with open(content_path, "r") as f:
         content = f.read()
 
+    print(f"SUCCESS /ticket for {token} for ticket {ticket_id}")
     return jsonify({"content": content}), 200
 
 """
@@ -324,15 +331,14 @@ def codebase():
     data = request.get_json()
     token = data.get("token")
 
-    print(f"/codebase for {token}")
-    print(f"{request.get_json()}")
-
     if not token:
+        print(f"FAIL /codebase for missing token. {data}")
         return jsonify({"error": "Missing token"}), 400
     
     user = User.query.filter_by(token=token).first()
 
     if not user:
+        print(f"FAIL /codebase for invalid token. {data}")
         return jsonify({"error": "Invalid token"}), 401
     
     #optional ticket_id for debugging
@@ -342,6 +348,7 @@ def codebase():
     #get the codebase for the current ticket under Tickets/ticket-{current_ticket}
     codebase_path = os.path.join(f"Tickets/Ticket-{current_ticket}", "Codebase")
     if not os.path.exists(codebase_path):
+        print(f"FAIL /codebase for missing codebase. {data}")
         return jsonify({"error": "No codebase for current ticket"}), 404
     
     #Jsonify the codebase
@@ -350,7 +357,8 @@ def codebase():
         for file in files:
             with open(os.path.join(root, file), "r") as f:
                 codebase[os.path.relpath(os.path.join(root, file), codebase_path)] = f.read()
-                
+    
+    print(f"SUCCESS /codebase for {token} for ticket {current_ticket}")
     return jsonify({"codebase": codebase}), 200
 
 """
@@ -387,20 +395,22 @@ def submit():
     ticket_id = data.get("ticket_id")
     codebase = data.get("codebase")
 
-    print(f"/submit for {token} for ticket {ticket_id}")
-
     if not token:
+        print(f"FAIL /submit for missing token. {data}")
         return jsonify({"error": "Missing token"}), 400
     
     if not ticket_id:
+        print(f"FAIL /submit for missing ticket_id. {data}")
         return jsonify({"error": "Missing ticket_id"}), 400
 
     if not codebase:
+        print(f"FAIL /submit for missing codebase. {data}")
         return jsonify({"error": "Missing codebase"}), 400
 
     user = User.query.filter_by(token=token).first()
 
     if not user:
+        print(f"FAIL /submit for invalid token. {data}")
         return jsonify({"error": "Invalid token"}), 401
     
     # Run the codebase against the tests for the current ticket and return the results
@@ -467,6 +477,7 @@ def submit():
             db.session.commit()
 
         status = "Code passed all tests for this ticket!" if summary["failed"] == 0 and summary["errors"] == 0 and summary["total"] > 0 else "Code failed some tests for this ticket!"
+        print(f"{'SUCCESS' if summary['failed'] == 0 and summary['errors'] == 0 and summary['total'] > 0 else 'FAILURE'} /submit for {token} for ticket {ticket_id}. Summary: {summary}")
         return jsonify({
             "Testing Output": status,
             "Details": {
