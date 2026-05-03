@@ -86,10 +86,12 @@ def login():
     "ticket_id": "0"
 }
 """
-@app.route("/ticket", methods=["GET"])
+@app.route("/ticket", methods=["POST"])
 def ticket():
-    token = request.args.get("token")
-    ticket_id = request.args.get("ticket_id")
+    data = request.get_json()
+
+    token = data.get("token")
+    ticket_id = data.get("ticket_id")
 
     print(f"/ticket for {token} for ticket {ticket_id}")
     if not token:
@@ -122,7 +124,8 @@ output:
 """
 @app.route("/codebase", methods=["POST"])
 def codebase():
-    token = request.args.get("token")
+    data = request.get_json()
+    token = data.get("token")
 
     print(f"/codebase for {token}")
     print(f"{request.get_json()}")
@@ -136,7 +139,7 @@ def codebase():
         return jsonify({"error": "Invalid token"}), 401
     
     #optional ticket_id for debugging
-    ticket_id = request.args.get("ticket_id")
+    ticket_id = data.get("ticket_id")
     current_ticket = user.tickets_done if ticket_id is None else ticket_id
 
     #get the codebase for the current ticket
