@@ -120,7 +120,7 @@ output:
     }
 }
 """
-@app.route("/codebase", methods=["GET"])
+@app.route("/codebase", methods=["POST"])
 def codebase():
     token = request.args.get("token")
 
