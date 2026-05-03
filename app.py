@@ -244,20 +244,23 @@ def submit():
         stderr = proc.stderr
         exit_code = proc.returncode
 
-        # Parse pytest summary from stdout (e.g., "== 4 passed, 1 failed in 0.12s ==")
+        # Parse pytest summary from stdout (e.g., "== 4 passed, 1 failed, 1 error in 0.12s ==")
         import re
-        summary = {"total": None, "passed": 0, "failed": 0, "skipped": 0}
+        summary = {"total": None, "passed": 0, "failed": 0, "errors": 0, "skipped": 0}
         m = re.search(r"(\d+) passed", stdout)
         if m:
             summary["passed"] = int(m.group(1))
         m = re.search(r"(\d+) failed", stdout)
         if m:
             summary["failed"] = int(m.group(1))
+        m = re.search(r"(\d+) errors?", stdout)
+        if m:
+            summary["errors"] = int(m.group(1))
         m = re.search(r"(\d+) skipped", stdout)
         if m:
             summary["skipped"] = int(m.group(1))
-        # total = passed + failed + skipped (if numbers present)
-        counts = [summary["passed"], summary["failed"], summary["skipped"]]
+        # total = passed + failed + errors + skipped (if numbers present)
+        counts = [summary["passed"], summary["failed"], summary["errors"], summary["skipped"]]
         if any(c > 0 for c in counts):
             summary["total"] = sum(counts)
         else:
@@ -265,11 +268,12 @@ def submit():
             summary["total"] = 0
 
         # Update user's tickets_done only if all tests passed and at least one test ran
-        if summary["failed"] == 0 and summary["total"] > 0:
-            user.tickets_done += 1
+        if summary["failed"] == 0 and summary["errors"] == 0 and summary["total"] > 0:
+            if user.tickets_done == int(ticket_id):
+                user.tickets_done += 1
             db.session.commit()
 
-        status = "Code passed all tests for this ticket!" if summary["failed"] == 0 and summary["total"] > 0 else "Code failed some tests for this ticket!"
+        status = "Code passed all tests for this ticket!" if summary["failed"] == 0 and summary["errors"] == 0 and summary["total"] > 0 else "Code failed some tests for this ticket!"
         return jsonify({
             "Testing Output": status,
             "Details": {
