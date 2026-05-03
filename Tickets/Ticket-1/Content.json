@@ -1,0 +1,36 @@
+{
+    "id": 1,
+    "title": "Ticket 1: Banking System with Interest and Transfers",
+    "description": "1, second ticket",
+    "difficulty": "Medium",
+    "components": [
+        {
+            "name": "calculator.py",
+            "description": "Low-level arithmetic operations (add, subtract, multiply, divide) - foundation for all calculations"
+        },
+        {
+            "name": "account.py",
+            "description": "BankAccount class managing individual accounts with PIN protection, balance tracking, deposits, withdrawals, and transaction history"
+        },
+        {
+            "name": "interest.py",
+            "description": "InterestCalculator for simple interest, compound interest, and annual interest application"
+        },
+        {
+            "name": "transactions.py",
+            "description": "Transaction and TransactionManager classes for handling deposits, withdrawals, and transfers between accounts"
+        },
+        {
+            "name": "bank.py",
+            "description": "Bank class managing multiple accounts and providing centralized account management"
+        },
+        {
+            "name": "main.py",
+            "description": "Demo application showing account creation, deposits, withdrawals, interest calculations, and transfers"
+        },
+        {
+            "name": "tests.py",
+            "description": "Comprehensive test suite covering all modules with 50+ test cases"
+        }
+    ]
+}
